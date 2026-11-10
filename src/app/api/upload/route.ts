@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { createUploadedDocument, type UploadResult } from "@/lib/server/documents";
-import { enqueueExtraction } from "@/lib/server/queue";
+import { kickExtraction } from "@/lib/server/queue";
 
 // POST multipart/form-data with one or more "file" fields. Responds right away;
 // extraction runs in the background and the client polls /api/documents/status.
@@ -22,11 +22,11 @@ export async function POST(request: Request) {
   for (const file of files) {
     try {
       results.push(
-        await createUploadedDocument(session.organizationId, {
-          name: file.name,
-          type: file.type,
-          bytes: new Uint8Array(await file.arrayBuffer()),
-        }),
+        await createUploadedDocument(
+          session.organizationId,
+          { name: file.name, type: file.type, bytes: new Uint8Array(await file.arrayBuffer()) },
+          { type: "user", userId: session.userId, name: session.name },
+        ),
       );
     } catch (error) {
       console.error("[upload] failed", file.name, error);
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const fresh = results.flatMap((r) => (r.ok && !r.duplicate ? [r.id] : []));
-  if (fresh.length > 0) enqueueExtraction(session.organizationId, fresh);
+  // New rows are the queue: wake the workers and return.
+  if (results.some((r) => r.ok && !r.duplicate)) kickExtraction();
   return NextResponse.json({ results });
 }
