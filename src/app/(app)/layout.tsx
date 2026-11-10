@@ -1,18 +1,17 @@
-import { LogOutIcon, UploadIcon } from "lucide-react";
+import { UploadIcon } from "lucide-react";
 import Link from "next/link";
-import { logout } from "@/app/(auth)/actions";
 import { AppNav } from "@/components/app-nav";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { requireSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { AUTONOMY_LABELS } from "@/lib/autonomy";
 import { db } from "@/lib/db";
 import { env, isMockMode } from "@/lib/env";
 import { getAutonomy } from "@/lib/server/settings";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  const session = await requireSession();
+  const session = await currentUser();
   const [reviewCount, autonomy] = await Promise.all([
     db.document.count({ where: { organizationId: session.organizationId, status: "needs_review" } }),
     getAutonomy(session.organizationId),
@@ -65,16 +64,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
               </TooltipContent>
             </Tooltip>
           )}
-          <div className="flex items-center gap-2 border-t pt-3 pl-2">
-            <div className="min-w-0 flex-1 text-xs leading-4">
-              <div className="truncate text-[13px] text-ink">{session.organizationName}</div>
-              <div className="truncate text-muted-foreground">{session.email}</div>
-            </div>
-            <form action={logout}>
-              <Button variant="ghost" size="icon-sm" type="submit" aria-label="Sign out" title="Sign out">
-                <LogOutIcon />
-              </Button>
-            </form>
+          <div className="border-t px-2 pt-3 text-xs leading-4">
+            <div className="truncate text-[13px] text-ink">{session.organizationName}</div>
+            <div className="truncate text-muted-foreground">{session.name}</div>
           </div>
         </div>
       </aside>
@@ -88,13 +80,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 sm:px-8 lg:py-10 print:max-w-none print:p-0">
           {children}
         </main>
-        <footer className="flex items-center justify-between gap-4 border-t px-4 py-3 text-xs text-muted-foreground sm:px-8 lg:hidden print:hidden">
+        <footer className="border-t px-4 py-3 text-xs text-muted-foreground sm:px-8 lg:hidden print:hidden">
           <span className="truncate">{session.organizationName}</span>
-          <form action={logout}>
-            <button type="submit" className="underline underline-offset-4">
-              Sign out
-            </button>
-          </form>
         </footer>
       </div>
     </div>

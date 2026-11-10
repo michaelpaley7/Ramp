@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireSession, type SessionUser } from "@/lib/auth";
+import { currentUser, type CurrentUser } from "@/lib/workspace";
 import { AUTONOMY_LEVELS } from "@/lib/autonomy";
 import { CREDIT_STATUSES, type ConfirmInput } from "@/lib/confirm";
 import {
@@ -19,14 +19,14 @@ import { setCreditLink } from "@/lib/server/linking";
 import { updateAutonomy } from "@/lib/server/settings";
 import { mergeVendors } from "@/lib/server/vendors";
 
-// Every action resolves the organization from the session, never from input.
+// Every action resolves the organization from the current user, never from input.
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
 const Id = z.string().min(1).max(64);
 
-/** The signed-in person, as the actor recorded on every change they make. */
-function actorOf(session: SessionUser): Actor {
+/** The person using the app, as the actor recorded on every change they make. */
+function actorOf(session: CurrentUser): Actor {
   return { type: "user", userId: session.userId, name: session.name };
 }
 
@@ -45,7 +45,7 @@ async function run(fn: () => Promise<string | void>): Promise<ActionResult> {
 }
 
 export async function confirmDocumentAction(documentId: string, input: ConfirmInput): Promise<ConfirmResult> {
-  const session = await requireSession();
+  const session = await currentUser();
   const result = await confirmDocument(session.organizationId, Id.parse(documentId), input, {
     actor: actorOf(session),
     via: "review",
@@ -55,7 +55,7 @@ export async function confirmDocumentAction(documentId: string, input: ConfirmIn
 }
 
 export async function confirmAllCleanAction(): Promise<ActionResult> {
-  const session = await requireSession();
+  const session = await currentUser();
   return run(async () => {
     const { confirmed, failed } = await confirmAllClean(session.organizationId, actorOf(session));
     return failed > 0
@@ -65,31 +65,31 @@ export async function confirmAllCleanAction(): Promise<ActionResult> {
 }
 
 export async function setCreditStatusAction(documentId: string, status: string): Promise<ActionResult> {
-  const session = await requireSession();
+  const session = await currentUser();
   return run(() =>
     setCreditStatus(session.organizationId, Id.parse(documentId), z.enum(CREDIT_STATUSES).parse(status), actorOf(session)),
   );
 }
 
 export async function setCreditLinkAction(documentId: string, choice: string): Promise<ActionResult> {
-  const session = await requireSession();
+  const session = await currentUser();
   return run(() => setCreditLink(session.organizationId, Id.parse(documentId), Id.parse(choice), actorOf(session)));
 }
 
 export async function retryExtractionAction(documentId: string): Promise<ActionResult> {
-  const session = await requireSession();
+  const session = await currentUser();
   return run(() => retryExtraction(session.organizationId, Id.parse(documentId), actorOf(session)));
 }
 
 export async function deleteDocumentAction(documentId: string): Promise<void> {
-  const session = await requireSession();
+  const session = await currentUser();
   await deleteDocument(session.organizationId, Id.parse(documentId), actorOf(session));
   refreshAll();
   redirect("/documents");
 }
 
 export async function mergeVendorsAction(sourceId: string, targetId: string): Promise<ActionResult> {
-  const session = await requireSession();
+  const session = await currentUser();
   const result = await run(() =>
     mergeVendors(session.organizationId, Id.parse(sourceId), Id.parse(targetId), actorOf(session)),
   );
@@ -104,7 +104,7 @@ const AutonomyInput = z.object({
 });
 
 export async function updateAutonomyAction(input: { level: string; limit: string }): Promise<ActionResult> {
-  const session = await requireSession();
+  const session = await currentUser();
   const parsed = AutonomyInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Pick one of the autonomy levels." };
   return run(() => updateAutonomy(session.organizationId, parsed.data, actorOf(session)));

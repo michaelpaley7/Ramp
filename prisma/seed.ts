@@ -1,22 +1,19 @@
-// pnpm seed: a demo login and a fake restaurant group with 18 months of AP data.
+// pnpm seed: the demo workspace, a fake restaurant group with 18 months of AP data.
 //
 // Deterministic apart from "today": rerunning wipes the demo organization and
 // rebuilds it relative to the current date. The data itself comes from
 // demo-data.ts, which the eval script replays too.
 
 import "dotenv/config";
-import bcrypt from "bcryptjs";
 import type { Prisma } from "../src/generated/prisma/client";
 import { addDays, fromPlainDate, todayUtc } from "../src/lib/dates";
 import { createPrismaClient } from "../src/lib/db";
 import { dedupeKey, normalizeDocumentNumber, vendorKeyFor } from "../src/lib/dedupe";
+import { DEMO_EMAIL, DEMO_USER_NAME } from "../src/lib/demo";
 import { decideCreditLink, explainLink, type LinkableInvoice } from "../src/lib/linking";
 import { decideCreditReason, explainReason } from "../src/lib/reasons";
 import { normalizeVendorName } from "../src/lib/vendors/normalize";
 import { DEMO_COMPANY, generateDemoData } from "./demo-data";
-
-const DEMO_EMAIL = "demo@example.com";
-const DEMO_PASSWORD = "demo1234";
 
 const db = createPrismaClient();
 
@@ -27,14 +24,7 @@ async function main() {
   await db.organization.deleteMany({ where: { users: { some: { email: DEMO_EMAIL } } } });
   const org = await db.organization.create({ data: { name: DEMO_COMPANY } });
   const organizationId = org.id;
-  await db.user.create({
-    data: {
-      organizationId,
-      email: DEMO_EMAIL,
-      name: "Demo User",
-      passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10),
-    },
-  });
+  await db.user.create({ data: { organizationId, email: DEMO_EMAIL, name: DEMO_USER_NAME } });
 
   for (const { id, profile } of data.vendors) {
     const aliases = [...new Set(profile.rawNames.map(normalizeVendorName))];
@@ -197,7 +187,7 @@ async function main() {
     `Created ${data.vendors.length} vendors, ${invoiceDocs.length} invoices, ${creditDocs.length} credit memos ` +
       `(${linked} linked, ${ambiguous} ambiguous, ${creditDocs.length - linked - ambiguous} with no match).`,
   );
-  console.log(`Log in as ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
+  console.log("Open http://localhost:3000 (pnpm dev). There is no sign-in.");
 }
 
 function chunks<T>(items: T[], size: number): T[][] {

@@ -14,11 +14,11 @@ Requirements: Node 22+ (tested on 24), pnpm, and Docker for Postgres.
 pnpm install          # also generates the Prisma client
 docker compose up -d  # Postgres 16 on localhost:5432
 pnpm db:migrate       # applies prisma/migrations
-pnpm seed             # demo login + 18 months of fake AP data
+pnpm seed             # demo workspace: 18 months of fake AP data
 pnpm dev              # http://localhost:3000
 ```
 
-**Demo login:** `demo@example.com` / `demo1234`
+There is no sign-in. The app opens straight into the demo workspace.
 
 No `.env` is needed. Every setting has a local default that matches `docker-compose.yml`. To change anything, copy `.env.example` to `.env`:
 
@@ -28,7 +28,6 @@ No `.env` is needed. Every setting has a local default that matches `docker-comp
 | `ANTHROPIC_API_KEY` | unset | Unset means **mock extraction mode** (a banner says so) |
 | `ANTHROPIC_MODEL` | `claude-opus-5-5` | Model used for extraction |
 | `STORAGE_DIR` | `./storage` | Where uploaded files are written |
-| `SESSION_COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
 
 ### Other scripts
 
@@ -44,7 +43,7 @@ No `.env` is needed. Every setting has a local default that matches `docker-comp
 
 ## Try it
 
-1. Sign in. **Overview** shows the amount still owed to you per currency, how long it has been owed, a to-do list, the open credits (oldest first) and the credits waiting to be matched with an invoice.
+1. Open the app. **Overview** shows the amount still owed to you per currency, how long it has been owed, a to-do list, the open credits (oldest first) and the credits waiting to be matched with an invoice.
 2. Open **Autonomy** and pick **Auto-confirm small, clean documents** (the limit defaults to $500), then **Save**. Skip this step to review everything by hand.
 3. Go to **Upload** and drop all five files from `/samples`. Each one moves `Queued → Reading → Needs review`, or straight to `Confirmed` when autopilot takes it. With the setting from step 2:
    - `2-credit-memo-acme-supply-pricing.pdf` and `3-credit-memo-harbor-produce-no-reference.pdf` confirm themselves: every check passed, the vendor is on file, and the amount is under the limit.
@@ -160,7 +159,7 @@ src/lib/                   Pure domain logic (unit tested) + infrastructure
   extraction/              Extractor interface, Claude extractor, mock extractor, Zod schema,
                            and the grounding checks on the extractor's quoted sources
   storage.ts               FileStorage interface + local filesystem driver
-  auth.ts                  Password hashing and database sessions
+  workspace.ts             The user and organization the app runs as (there is no sign-in)
   env.ts, db.ts            Config with defaults, Prisma client (pg adapter)
   server/                  Database-backed services, all scoped by organizationId
     pipeline.ts            Extract one document, run the checks, apply the autonomy setting
@@ -173,16 +172,14 @@ src/lib/                   Pure domain logic (unit tested) + infrastructure
     queries.ts             Read models for the pages
 
 src/app/
-  (auth)/                  Login and signup
   (app)/page.tsx           Overview: amount owed, aging, to-do list, open and unlinked credits
   (app)/upload/            Drag-and-drop upload with live status
   (app)/documents/         Document list and the review screen ([id])
   (app)/vendors/           Scorecard, vendor detail ([id]), negotiation summary ([id]/summary)
   (app)/settings/          Autonomy: level, guardrails, zero-edit rate
   (app)/activity/          The audit trail
-  (app)/actions.ts         Server actions (each one resolves the org from the session)
+  (app)/actions.ts         Server actions (each one resolves the org from the current user)
   api/                     Upload, status polling, original-file download
-src/proxy.ts               Redirects signed-out visitors to /login
 src/components/            Shared UI; components/ui is shadcn/ui
 ```
 

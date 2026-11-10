@@ -4,7 +4,7 @@ Judgment calls made while building the MVP, each with a one-line reason.
 
 ## Tooling and stack
 
-- **Next.js 16.4 (App Router) with Cache Components off.** Every page is per-user and reads the session cookie, so a prerendered static shell buys nothing and adds Suspense rules.
+- **Next.js 16.4 (App Router) with Cache Components off.** Every page reads live data from Postgres on each request, so a prerendered static shell buys nothing and adds Suspense rules.
 - **Prisma 7.10.1, not the npm `latest` tag.** `latest` currently points at an 8.0 release candidate; 7.10.1 is the newest stable.
 - **Prisma 7 with the `pg` driver adapter.** Prisma 7 requires a driver adapter; `@prisma/adapter-pg` is the standard one for Postgres.
 - **shadcn/ui on the Radix base, Nova preset, restyled with tokens.** Radix is the long-standing shadcn base, and Nova is the default preset. The Ramp look comes from CSS variables and a handful of small components, not from forking the primitives.
@@ -110,12 +110,13 @@ Judgment calls made while building the MVP, each with a one-line reason.
 - **Sentence amounts round to whole dollars; tables keep cents.** The spec's example uses whole dollars.
 - **Printing uses the browser's print-to-PDF with print CSS.** It needs no extra dependency, and the app chrome hides itself when printing.
 
-## Auth and tenancy
+## Sign-in and tenancy
 
-- **Auth is hand-rolled: bcrypt passwords plus database sessions.** A random token goes in an httpOnly cookie and only its sha256 is stored. It's small, with no beta auth library in the critical path.
-- **Every tenant table has `organizationId`, and every query filters by it.** The org comes from the session, never from request input.
-- **Signup creates a new organization.** There are no invitations yet, so one org per signup is the only option.
-- **The proxy (Next 16's renamed middleware) only checks that the cookie exists.** The real validation happens in `requireSession` and the API routes; the proxy skips `/api` so uploads aren't buffered by it.
+- **There is no sign-in.** The app opens straight into one workspace: the demo organization the seed creates, or an empty one made on first use. A login screen added a step to every demo and protected nothing in a single-team prototype, so the pages, sessions and password hashes were removed rather than left unused.
+- **Anyone who can reach the app can see and change its data.** Run it locally or behind a private network. This is the first thing to add back before real data goes in.
+- **The data model is still multi-tenant.** Every tenant table has `organizationId`, and every query filters by it. The organization comes from `currentUser()` in `src/lib/workspace.ts`, never from request input, so adding sign-in back means changing that one function.
+- **A user row is kept.** Every audit event names the person behind a change, so the app runs as a real user rather than as nobody.
+- **`currentUser()` calls `connection()` first.** With no cookie read to mark a page as per-request, Next would otherwise prerender pages at build time from whatever was in the database.
 
 ## Seed data
 
@@ -167,6 +168,6 @@ Each of these is something Ramp has published about its own product. Links are i
 - **The linker chooses precision over coverage.** When a memo prints no invoice number it links about 1 in 100 and asks a person for the rest (`pnpm eval`). Next: use amount evidence (a credit equal to a whole number of units at an invoice line's price), added behind the eval gate.
 - **The evals run on synthetic data.** They catch regressions, not real-world accuracy. Next: a labeled set of real documents, built from recorded reviewer corrections.
 - **Workers share the web process.** Next: a separate worker with retries and backoff, and an attempt row per extraction.
-- **Tenancy is enforced in application code.** Every query filters by `organizationId`. Next: row-level security keyed on the organization as a second layer, which Ramp describes for its own API.
+- **No sign-in, and tenancy is enforced in application code.** Every query filters by `organizationId`. Next: real authentication (single sign-on), then row-level security keyed on the organization as a second layer, which Ramp describes for its own API.
 - **TypeScript end to end, not Ramp's Python backend.** One language and one deploy for a team of three; the data model and queue would port directly.
 - **Autonomy has one limit in one currency.** Next: per-vendor limits and a blocklist.

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Uploader } from "@/app/(app)/upload/uploader";
 import { PageHeader } from "@/components/page-header";
-import { requireSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { AUTONOMY_LABELS } from "@/lib/autonomy";
 import { isMockMode } from "@/lib/env";
 import { formatCents } from "@/lib/money";
@@ -17,7 +17,7 @@ const STEPS = [
 ] as const;
 
 export default async function UploadPage() {
-  const { organizationId } = await requireSession();
+  const { organizationId } = await currentUser();
   const autonomy = await getAutonomy(organizationId);
   const setting =
     autonomy.level === "auto_within_limit"

@@ -7,7 +7,7 @@ import { ReasonBar } from "@/components/reason-bar";
 import { ScorecardFilters } from "@/components/scorecard-filters";
 import { Stat } from "@/components/stat";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { formatPlainDate, todayUtc } from "@/lib/dates";
 import {
   computeScorecard,
@@ -42,7 +42,7 @@ const COLUMNS: Array<{ key: SortKey; label: string; definition?: string; numeric
 ];
 
 export default async function VendorsPage({ searchParams }: PageProps<"/vendors">) {
-  const { organizationId } = await requireSession();
+  const { organizationId } = await currentUser();
   const params = await searchParams;
   const today = todayUtc();
   const periodKey = parsePeriod(one(params.period));

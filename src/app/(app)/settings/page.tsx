@@ -4,7 +4,7 @@ import { AutonomyForm } from "@/app/(app)/settings/autonomy-form";
 import { ActivityFeed } from "@/components/activity-feed";
 import { PageHeader, Section } from "@/components/page-header";
 import { Stat } from "@/components/stat";
-import { requireSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { GUARDRAILS } from "@/lib/autonomy";
 import { centsToDecimalString } from "@/lib/money";
 import { AUTOPILOT, getActivity } from "@/lib/server/audit";
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Autonomy" };
 const rate = (n: number, d: number) => (d === 0 ? "—" : `${Math.round((100 * n) / d)}%`);
 
 export default async function SettingsPage() {
-  const { organizationId } = await requireSession();
+  const { organizationId } = await currentUser();
   const [policy, stats, decisions] = await Promise.all([
     getAutonomy(organizationId),
     getAutomationStats(organizationId),

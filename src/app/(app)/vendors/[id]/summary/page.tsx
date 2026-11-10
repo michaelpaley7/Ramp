@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/app/(app)/vendors/[id]/summary/print-button";
 import { ScorecardFilters } from "@/components/scorecard-filters";
-import { requireSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { daysBetween, formatPlainDate, fromPlainDate, toPlainDate, todayUtc } from "@/lib/dates";
 import { db } from "@/lib/db";
 import {
@@ -38,7 +38,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default async function NegotiationSummaryPage({ params, searchParams }: PageProps<"/vendors/[id]/summary">) {
-  const session = await requireSession();
+  const session = await currentUser();
   const { organizationId } = session;
   const { id } = await params;
   const query = await searchParams;

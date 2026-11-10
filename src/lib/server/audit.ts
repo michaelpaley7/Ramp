@@ -2,7 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 
 // The audit trail. Every change to a record goes through recordEvent with the
-// actor that made it: a signed-in person, or a named part of the system. Events
+// actor that made it: a person, or a named part of the system. Events
 // are append-only; nothing in the app updates or deletes them.
 
 type Tx = Prisma.TransactionClient;

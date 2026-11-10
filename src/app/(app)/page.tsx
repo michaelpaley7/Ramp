@@ -6,7 +6,7 @@ import { InfoTip } from "@/components/info-tip";
 import { PageHeader, Section } from "@/components/page-header";
 import { Pill } from "@/components/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { formatPlainDate } from "@/lib/dates";
 import { db } from "@/lib/db";
 import { OPEN_CREDIT_AGING_DAYS } from "@/lib/metrics";
@@ -37,7 +37,7 @@ function aging(rows: CreditRow[], currency: string) {
 }
 
 export default async function OverviewPage() {
-  const { organizationId, organizationName } = await requireSession();
+  const { organizationId, organizationName } = await currentUser();
   const [open, unlinked, reviewCount] = await Promise.all([
     getOpenCredits(organizationId),
     getUnlinkedCredits(organizationId),

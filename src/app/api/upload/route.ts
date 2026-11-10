@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { createUploadedDocument, type UploadResult } from "@/lib/server/documents";
 import { kickExtraction } from "@/lib/server/queue";
 
 // POST multipart/form-data with one or more "file" fields. Responds right away;
 // extraction runs in the background and the client polls /api/documents/status.
 export async function POST(request: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  const session = await currentUser();
 
   let form: FormData;
   try {

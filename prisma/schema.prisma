@@ -95,7 +95,6 @@ model Organization {
   autoConfirmCurrency   String        @default("USD") @db.Char(3)
 
   users       User[]
-  sessions    Session[]
   vendors     Vendor[]
   aliases     VendorAlias[]
   documents   Document[]
@@ -103,34 +102,19 @@ model Organization {
   auditEvents AuditEvent[]
 }
 
+// The app has no sign-in: it runs as a single user (see src/lib/workspace.ts).
+// Users still exist so every audit event can name the person behind a change.
 model User {
   id             String   @id @default(cuid())
   organizationId String
   email          String   @unique
   name           String
-  passwordHash   String
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  sessions     Session[]
   auditEvents  AuditEvent[]
 
   @@index([organizationId])
-}
-
-model Session {
-  id             String   @id @default(cuid())
-  organizationId String
-  userId         String
-  // sha256 of the cookie value; the raw token is never stored.
-  tokenHash      String   @unique
-  expiresAt      DateTime @db.Timestamptz(3)
-  createdAt      DateTime @default(now()) @db.Timestamptz(3)
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
 }
 
 model Vendor {

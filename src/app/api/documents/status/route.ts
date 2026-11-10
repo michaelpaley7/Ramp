@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { db } from "@/lib/db";
 import { recoverStuckDocuments } from "@/lib/server/queue";
 
@@ -19,8 +19,7 @@ export interface DocumentStatusDto {
 
 // GET ?ids=a,b,c -> current status of those documents (polled by the upload page).
 export async function GET(request: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  const session = await currentUser();
 
   const ids = (new URL(request.url).searchParams.get("ids") ?? "")
     .split(",")

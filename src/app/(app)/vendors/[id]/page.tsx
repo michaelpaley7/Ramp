@@ -13,7 +13,7 @@ import { DocumentStatusBadge, Pill } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { requireSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { CREDIT_STATUS_LABELS } from "@/lib/confirm";
 import { fromPlainDate, formatPlainDate, lastMonths, toPlainDate, todayUtc } from "@/lib/dates";
 import { db } from "@/lib/db";
@@ -38,7 +38,7 @@ function one(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function VendorPage({ params, searchParams }: PageProps<"/vendors/[id]">) {
-  const { organizationId } = await requireSession();
+  const { organizationId } = await currentUser();
   const { id } = await params;
   const query = await searchParams;
   const vendor = await db.vendor.findFirst({

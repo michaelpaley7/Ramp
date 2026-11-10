@@ -13,7 +13,7 @@ import { DocumentStatusBadge, TYPE_LABELS } from "@/components/status-badge";
 import { SystemNote } from "@/components/system-note";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { requireSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { toConfirmInput, type ConfirmInput } from "@/lib/confirm";
 import { formatPlainDate, toPlainDate } from "@/lib/dates";
 import { db } from "@/lib/db";
@@ -34,7 +34,7 @@ const CONFIRMED_VIA = {
 } as const;
 
 export default async function ReviewPage({ params }: PageProps<"/documents/[id]">) {
-  const { organizationId } = await requireSession();
+  const { organizationId } = await currentUser();
   const { id } = await params;
   const doc = await db.document.findFirst({
     where: { id, organizationId },

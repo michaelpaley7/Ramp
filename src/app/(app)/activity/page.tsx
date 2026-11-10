@@ -4,7 +4,7 @@ import { ActivityFeed } from "@/components/activity-feed";
 import { LinkTabs } from "@/components/link-tabs";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { requireSession } from "@/lib/auth";
+import { currentUser } from "@/lib/workspace";
 import { db } from "@/lib/db";
 import { getActivity } from "@/lib/server/audit";
 
@@ -22,7 +22,7 @@ function one(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function ActivityPage({ searchParams }: PageProps<"/activity">) {
-  const { organizationId } = await requireSession();
+  const { organizationId } = await currentUser();
   const params = await searchParams;
   const by = FILTERS.find((f) => f.key === one(params.by))?.key ?? "all";
   const page = Math.max(1, Number(one(params.page)) || 1);
