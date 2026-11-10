@@ -111,10 +111,15 @@ function toActivityRow(e: ActivityRecord): ActivityRow {
 /** Newest first. Scoped to one document when `documentId` is given. */
 export async function getActivity(
   organizationId: string,
-  options: { documentId?: string; actorType?: "user" | "system"; take?: number; skip?: number } = {},
+  options: { documentId?: string; actorType?: "user" | "system"; actorName?: string; take?: number; skip?: number } = {},
 ): Promise<ActivityRow[]> {
   const rows = await db.auditEvent.findMany({
-    where: { organizationId, documentId: options.documentId, actorType: options.actorType },
+    where: {
+      organizationId,
+      documentId: options.documentId,
+      actorType: options.actorType,
+      actorName: options.actorName,
+    },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: options.take ?? 100,
     skip: options.skip,

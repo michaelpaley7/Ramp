@@ -13,6 +13,8 @@ export interface DocumentStatusDto {
   currency: string | null;
   errorMessage: string | null;
   issueCount: number;
+  /** Why the autopilot left a clean document for a person, when it did. */
+  heldReason: string | null;
 }
 
 // GET ?ids=a,b,c -> current status of those documents (polled by the upload page).
@@ -42,6 +44,12 @@ export async function GET(request: Request) {
       errorMessage: true,
       reviewIssues: true,
       vendor: { select: { name: true } },
+      auditEvents: {
+        where: { action: "document.held" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { summary: true },
+      },
     },
   });
   const body: DocumentStatusDto[] = docs.map((d) => ({
@@ -54,6 +62,7 @@ export async function GET(request: Request) {
     currency: d.currency,
     errorMessage: d.errorMessage,
     issueCount: d.reviewIssues.length,
+    heldReason: d.auditEvents[0]?.summary ?? null,
   }));
   return NextResponse.json({ documents: body });
 }

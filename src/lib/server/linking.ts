@@ -89,12 +89,12 @@ export async function autoLinkCredit(
   });
 
   const before = credit.linkedInvoiceId ? "linked" : credit.linkCandidateIds.length > 0 ? "ambiguous" : "none";
+  // Still ambiguous among a different number of invoices is not news.
   const changed =
     options.force ||
     credit.linkRationale === null ||
     before !== result.kind ||
-    (result.kind === "linked" && credit.linkedInvoiceId !== result.invoiceId) ||
-    (result.kind === "ambiguous" && credit.linkCandidateIds.length !== result.candidateIds.length);
+    (result.kind === "linked" && credit.linkedInvoiceId !== result.invoiceId);
   if (changed) {
     await recordEvent(
       {

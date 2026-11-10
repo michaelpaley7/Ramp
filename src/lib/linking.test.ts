@@ -167,7 +167,7 @@ describe("explainLink", () => {
 
   it("mentions a referenced invoice that isn't on file", () => {
     const text = explain(credit({ referencedInvoiceNumber: "MISSING-9" }), []);
-    expect(text).toContain("The memo names invoice MISSING-9, which isn't on file.");
+    expect(text).toContain("The memo names invoice MISSING-9, which isn't among this vendor's confirmed invoices.");
     expect(text).toContain("No invoice from this vendor");
   });
 

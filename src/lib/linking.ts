@@ -176,7 +176,9 @@ export function explainLink(decision: LinkDecision, invoiceNumber: string | null
     return `The memo names invoice ${e.reference ?? named}, and exactly one invoice from this vendor carries that number.`;
   }
   const missingReference =
-    e.reference && e.referenceMatches === 0 ? `The memo names invoice ${e.reference}, which isn't on file. ` : "";
+    e.reference && e.referenceMatches === 0
+      ? `The memo names invoice ${e.reference}, which isn't among this vendor's confirmed invoices. `
+      : "";
   const noReference = !e.reference ? "The memo names no invoice. " : "";
   const lead = missingReference || noReference;
 
