@@ -15,7 +15,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
     "seed": "tsx prisma/seed.ts",
-    "samples": "tsx scripts/generate-samples.ts"
+    "samples": "tsx scripts/generate-samples.ts",
+    "eval": "tsx scripts/eval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
