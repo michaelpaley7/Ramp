@@ -12,6 +12,7 @@ import { decideCreditReason, explainReason } from "@/lib/reasons";
 import { issueList, reviewDocument } from "@/lib/review";
 import { AUTOPILOT, EXTRACTION, recordEvent } from "@/lib/server/audit";
 import { confirmDocument, storedConfirmInput } from "@/lib/server/documents";
+import { getAutonomy } from "@/lib/server/settings";
 import { findVendorByName } from "@/lib/server/vendors";
 import { getStorage } from "@/lib/storage";
 import { normalizeVendorName } from "@/lib/vendors/normalize";
@@ -87,7 +88,10 @@ function duplicateMessage(dup: { type: string | null; documentNumber: string | n
   );
 }
 
-type Applied = { outcome: "needs_review"; vendorKnown: boolean; issues: string[] } | { outcome: "duplicate" };
+type Applied =
+  | { outcome: "needs_review" }
+  | { outcome: "auto_confirm"; reason: string }
+  | { outcome: "duplicate" };
 
 async function applyExtraction(
   organizationId: string,
@@ -95,6 +99,7 @@ async function applyExtraction(
   n: NormalizedExtraction,
   raw: unknown,
   extractorName: string,
+  policy: AutonomyPolicy,
 ): Promise<Applied> {
   const vendor = n.vendorName ? await findVendorByName(organizationId, n.vendorName) : null;
   const key =
@@ -164,6 +169,21 @@ async function applyExtraction(
         })
       : null;
 
+  // The autonomy setting, decided here so the outcome lands in one write. A
+  // document autopilot will confirm stays `extracting` until it is confirmed;
+  // nothing ever sees it as "needs review" for a moment in between.
+  const decision =
+    policy.level === "review_all"
+      ? null
+      : decideAutoConfirm(policy, {
+          type: n.type,
+          issues,
+          vendorKnown: vendor !== null,
+          currency: n.currency,
+          totalCents: n.totalCents,
+        });
+  const autoConfirm = decision?.action === "confirm";
+
   try {
     await db.$transaction(async (tx) => {
       await tx.lineItem.deleteMany({ where: { documentId, organizationId } });
@@ -171,7 +191,7 @@ async function applyExtraction(
         where: { id: documentId },
         data: {
           ...base,
-          status: "needs_review",
+          status: autoConfirm ? "extracting" : "needs_review",
           dedupeKey: key,
           duplicateOfId: null,
           reviewIssues: issues,
@@ -201,6 +221,9 @@ async function applyExtraction(
         },
         tx,
       );
+      if (decision?.action === "hold") {
+        await recordEvent(heldEvent(organizationId, documentId, decision.reason, policy), tx);
+      }
     });
   } catch (error) {
     if (key && isUniqueViolation(error)) {
@@ -212,7 +235,18 @@ async function applyExtraction(
     }
     throw error;
   }
-  return { outcome: "needs_review", vendorKnown: vendor !== null, issues };
+  return decision?.action === "confirm" ? { outcome: "auto_confirm", reason: decision.reason } : { outcome: "needs_review" };
+}
+
+function heldEvent(organizationId: string, documentId: string, reason: string, policy: AutonomyPolicy) {
+  return {
+    organizationId,
+    documentId,
+    actor: AUTOPILOT,
+    action: "document.held" as const,
+    summary: `Held for review. ${reason}`,
+    detail: { level: policy.level, limitCents: policy.limitCents, currency: policy.currency },
+  };
 }
 
 function extractionSummary(n: NormalizedExtraction, matchedVendor: string | null, issueCount: number): string {
@@ -232,55 +266,32 @@ function extractionSummary(n: NormalizedExtraction, matchedVendor: string | null
 }
 
 /**
- * Applies the organization's autonomy setting to a freshly extracted document.
- * A clean document inside the guardrails confirms itself; anything else stays
- * in review, and the trail says why.
+ * Confirms a clean document on the organization's behalf. If the confirmation
+ * is refused after all (a duplicate that appeared meanwhile), the document goes
+ * to review with that reason on the trail.
  */
-async function applyAutonomy(
+async function autoConfirm(
   organizationId: string,
   documentId: string,
-  n: NormalizedExtraction,
-  applied: Extract<Applied, { outcome: "needs_review" }>,
+  reason: string,
+  policy: AutonomyPolicy,
 ): Promise<void> {
-  const org = await db.organization.findUniqueOrThrow({
-    where: { id: organizationId },
-    select: { autonomyLevel: true, autoConfirmLimitCents: true, autoConfirmCurrency: true },
-  });
-  const policy: AutonomyPolicy = {
-    level: org.autonomyLevel,
-    limitCents: org.autoConfirmLimitCents,
-    currency: org.autoConfirmCurrency,
-  };
-  if (policy.level === "review_all") return;
-
-  const decision = decideAutoConfirm(policy, {
-    type: n.type,
-    issues: applied.issues,
-    vendorKnown: applied.vendorKnown,
-    currency: n.currency,
-    totalCents: n.totalCents,
-  });
-
-  let heldBecause = decision.reason;
-  if (decision.action === "confirm") {
-    const input = await storedConfirmInput(organizationId, documentId);
-    const result = input
-      ? await confirmDocument(organizationId, documentId, input, {
-          actor: AUTOPILOT,
-          via: "autopilot",
-          reason: decision.reason,
-        })
-      : ({ ok: false, error: "The document is gone." } as const);
-    if (result.ok) return;
-    heldBecause = result.error;
-  }
-  await recordEvent({
-    organizationId,
-    documentId,
-    actor: AUTOPILOT,
-    action: "document.held",
-    summary: `Held for review. ${heldBecause}`,
-    detail: { level: policy.level, limitCents: policy.limitCents, currency: policy.currency },
+  const input = await storedConfirmInput(organizationId, documentId);
+  const result = input
+    ? await confirmDocument(organizationId, documentId, input, {
+        actor: AUTOPILOT,
+        via: "autopilot",
+        reason,
+        duringExtraction: true,
+      })
+    : ({ ok: false, error: "The document is gone." } as const);
+  if (result.ok) return;
+  await db.$transaction(async (tx) => {
+    await tx.document.updateMany({
+      where: { id: documentId, organizationId, status: "extracting" },
+      data: { status: "needs_review" },
+    });
+    await recordEvent(heldEvent(organizationId, documentId, result.error, policy), tx);
   });
 }
 
@@ -306,9 +317,10 @@ export async function processClaimedDocument(organizationId: string, documentId:
       hints: await loadHints(organizationId),
     });
     const normalized = normalizeExtraction(raw);
-    const applied = await applyExtraction(organizationId, documentId, normalized, raw, extractor.name);
-    if (applied.outcome === "needs_review") {
-      await applyAutonomy(organizationId, documentId, normalized, applied);
+    const policy = await getAutonomy(organizationId);
+    const applied = await applyExtraction(organizationId, documentId, normalized, raw, extractor.name, policy);
+    if (applied.outcome === "auto_confirm") {
+      await autoConfirm(organizationId, documentId, applied.reason, policy);
     }
   } catch (error) {
     console.error(`[extraction] document ${documentId} failed`, error);

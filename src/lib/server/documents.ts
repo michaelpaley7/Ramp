@@ -89,6 +89,8 @@ export interface ConfirmContext {
   via: "review" | "bulk" | "autopilot";
   /** For the autopilot: the policy sentence that allowed it. */
   reason?: string;
+  /** The pipeline confirming a document it is still holding as `extracting`. */
+  duringExtraction?: boolean;
 }
 
 /** Saves the reviewed fields and marks the document confirmed. */
@@ -109,7 +111,7 @@ export async function confirmDocument(
     include: { lineItems: { orderBy: { position: "asc" } } },
   });
   if (!doc) return { ok: false, error: "Document not found." };
-  if (doc.status === "uploaded" || doc.status === "extracting") {
+  if (doc.status === "uploaded" || (doc.status === "extracting" && !context.duringExtraction)) {
     return { ok: false, error: "This document is still being extracted." };
   }
   const wasConfirmed = doc.status === "confirmed";

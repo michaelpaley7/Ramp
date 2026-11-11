@@ -31,7 +31,7 @@ export function SourceQuote({ quote, className }: { quote: string; className?: s
   return (
     <p className={cn("flex min-w-0 items-baseline gap-1.5 text-xs leading-4 text-intel-ink", className)}>
       <span className="shrink-0 text-[10px] font-medium tracking-[0.1em] uppercase">Source</span>
-      <span className="min-w-0 truncate font-mono" title={quote}>
+      <span className="line-clamp-2 min-w-0 font-mono break-words" title={quote}>
         {quote}
       </span>
     </p>
